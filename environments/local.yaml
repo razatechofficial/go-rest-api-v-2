@@ -1,0 +1,27 @@
+# environments/local.yaml
+# Local development settings
+
+app:
+  name: Enterprise API (Local)
+  version: 1.0.0
+  environment: development
+
+server:
+  host: localhost
+  port: 8080
+  mode: debug
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  database: go_rest_api_v_2
+  ssl_mode: disable
+  max_open_conns: 10
+  min_idle_conns: 2
+
+log:
+  level: debug
+  format: console

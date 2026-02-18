@@ -30,3 +30,13 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# But allow templates
+!.env.example
+!.env.production

@@ -1,0 +1,27 @@
+# environments/production.yaml
+# Production settings - NO SECRETS HERE
+
+app:
+  name: Enterprise API
+  version: 1.0.0
+  environment: production
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: release
+  read_timeout: 5s
+  write_timeout: 5s
+
+database:
+  host: ${DB_HOST} # From environment variable
+  port: 5432
+  user: ${DB_USER}
+  database: ${DB_DATABASE}
+  ssl_mode: require
+  max_open_conns: 50
+  min_idle_conns: 25
+
+log:
+  level: warn
+  format: json
