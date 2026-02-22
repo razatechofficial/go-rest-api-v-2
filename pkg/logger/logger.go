@@ -16,6 +16,10 @@ import (
 // Use this throughout the application.
 var Log *zap.Logger
 
+// Field is our own type — wraps zap.Field
+// callers use logger.Field, never zap.Field
+type Field = zap.Field
+
 // Init initializes the logger with configuration.
 // Call this once at application startup.
 func Init(level string, format string) error {
@@ -74,32 +78,19 @@ func With(fields ...zap.Field) *zap.Logger {
 }
 
 // Helper functions for common log levels
-func Debug(msg string, fields ...zap.Field) {
-	Log.Debug(msg, fields...)
-}
+// ── level helpers ─────────────────────────────────────────────────────
+func Debug(msg string, fields ...Field) { Log.Debug(msg, fields...) }
+func Info(msg string, fields ...Field)  { Log.Info(msg, fields...) }
+func Warn(msg string, fields ...Field)  { Log.Warn(msg, fields...) }
+func Error(msg string, fields ...Field) { Log.Error(msg, fields...) }
+func Fatal(msg string, fields ...Field) { Log.Fatal(msg, fields...) }
 
-func Info(msg string, fields ...zap.Field) {
-	Log.Info(msg, fields...)
-}
-
-func Warn(msg string, fields ...zap.Field) {
-	Log.Warn(msg, fields...)
-}
-
-func Error(msg string, fields ...zap.Field) {
-	Log.Error(msg, fields...)
-}
-
-func Fatal(msg string, fields ...zap.Field) {
-	Log.Fatal(msg, fields...)
-}
-
-// Field constructors - wrap zap functions for convenience
-func String(key, val string) zap.Field                 { return zap.String(key, val) }
-func Int(key string, val int) zap.Field                { return zap.Int(key, val) }
-func Int32(key string, val int32) zap.Field            { return zap.Int32(key, val) }
-func Int64(key string, val int64) zap.Field            { return zap.Int64(key, val) }
-func Bool(key string, val bool) zap.Field              { return zap.Bool(key, val) }
-func Duration(key string, val time.Duration) zap.Field { return zap.Duration(key, val) }
-func ErrorField(err error) zap.Field                   { return zap.Error(err) }
-func Any(key string, val interface{}) zap.Field        { return zap.Any(key, val) }
+// ── field constructors ────────────────────────────────────────────────
+func String(key, val string) Field                 { return zap.String(key, val) }
+func Int(key string, val int) Field                { return zap.Int(key, val) }
+func Int32(key string, val int32) Field            { return zap.Int32(key, val) }
+func Int64(key string, val int64) Field            { return zap.Int64(key, val) }
+func Bool(key string, val bool) Field              { return zap.Bool(key, val) }
+func Duration(key string, val time.Duration) Field { return zap.Duration(key, val) }
+func Err(err error) Field                          { return zap.Error(err) }
+func Any(key string, val interface{}) Field        { return zap.Any(key, val) }
