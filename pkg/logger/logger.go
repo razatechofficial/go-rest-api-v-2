@@ -6,6 +6,7 @@
 package logger
 
 import (
+	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -63,19 +64,18 @@ func Init(level string, format string) error {
 	return nil
 }
 
-// Sync flushes any buffered log entries.
-// Call this before application exit.
+
+// Sync flushes buffered log entries.
+// Call explicitly after shutdown — do not rely solely on defer.
+// Safe to call multiple times.
 func Sync() {
-	if Log != nil {
-		_ = Log.Sync()
+	if Log == nil {
+		return
 	}
+	// error is intentionally ignored — sync errors on stderr are benign
+	_ = Log.Sync()
 }
 
-// With creates a child logger with additional fields.
-// Use this to add context to logs (request_id, user_id, etc.)
-func With(fields ...zap.Field) *zap.Logger {
-	return Log.With(fields...)
-}
 
 // Helper functions for common log levels
 // ── level helpers ─────────────────────────────────────────────────────
@@ -83,7 +83,20 @@ func Debug(msg string, fields ...Field) { Log.Debug(msg, fields...) }
 func Info(msg string, fields ...Field)  { Log.Info(msg, fields...) }
 func Warn(msg string, fields ...Field)  { Log.Warn(msg, fields...) }
 func Error(msg string, fields ...Field) { Log.Error(msg, fields...) }
-func Fatal(msg string, fields ...Field) { Log.Fatal(msg, fields...) }
+
+// Fatal logs at error level, flushes, then exits.
+// Does NOT use zap.Fatal — zap.Fatal calls os.Exit before Sync() runs.
+// This version guarantees the log is flushed before process exits.
+func Fatal(msg string, fields ...Field) {
+	Log.Error(msg, fields...)
+	Sync() // flush before exit — critical
+	os.Exit(1)
+}
+
+// With creates a child logger with additional fields.
+func With(fields ...Field) *zap.Logger {
+	return Log.With(fields...)
+}
 
 // ── field constructors ────────────────────────────────────────────────
 func String(key, val string) Field                 { return zap.String(key, val) }
