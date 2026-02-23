@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
+
 	"github.com/razatechofficial/go-rest-api-v-2/config"
-	database "github.com/razatechofficial/go-rest-api-v-2/internal/infrastructure/persistence/postgres"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/infrastructure/persistence/postgres"
 
 	transporthttp "github.com/razatechofficial/go-rest-api-v-2/internal/transport/http"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
@@ -10,6 +12,7 @@ import (
 
 type App struct {
 	HTTP *transporthttp.Server
+	db   *postgres.Pool // kept so we can close it on shutdown
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -23,11 +26,10 @@ func New(cfg *config.Config) (*App, error) {
 
 	//! ================================ INFRASTRUCTURE ================================
 	//* Step 3: Connect to database
-	db, err := database.NewConnection(cfg.Database)
+	db, err := postgres.NewConnection(cfg)
 	if err != nil {
 		panic("Failed to connect to database: " + err.Error())
 	}
-	defer db.Close()
 
 	// container — all DI wiring
 	// c := container.New(cfg, db)
@@ -37,5 +39,29 @@ func New(cfg *config.Config) (*App, error) {
 	httpServer := transporthttp.NewServer(cfg)
 	// httpServer.RegisterRoutes(c)
 
-	return &App{HTTP: httpServer}, nil
+	return &App{
+		HTTP: httpServer,
+		db:   db,
+	}, nil
+}
+
+// Shutdown cleanly stops all resources in reverse startup order.
+// HTTP server drains first — no new requests accepted.
+// Then DB pool closes — all in-flight queries finish first.
+func (a *App) Shutdown(ctx context.Context) error {
+	logger.Info("shutting down application")
+
+	// 1. stop HTTP first — no new requests accepted after this
+	if err := a.HTTP.Shutdown(ctx); err != nil {
+		// do not return here — still need to close DB
+		// log the error and continue shutdown
+		logger.Error("http server shutdown error", logger.Err(err))
+	}
+
+	// 2. close DB after HTTP is fully drained
+	// at this point no in-flight HTTP handler can be making DB calls
+	a.db.Close()
+
+	logger.Info("application shutdown complete")
+	return nil
 }
