@@ -34,7 +34,7 @@ func main() {
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Format); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
-	defer logger.Sync() // Flush logs on exit
+	// defer logger.Sync() // Flush logs on exit
 
 	//! ================================ APPLICATION BOOTSTRAP ================================
 	//* 3. bootstrap application
@@ -80,9 +80,14 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := application.HTTP.Shutdown(ctx); err != nil {
-		logger.Fatal("forced shutdown", logger.Err(err))
+	if err := application.Shutdown(ctx); err != nil {
+		logger.Error("shutdown error", logger.Err(err))
 	}
+	// flush all buffered logs before process exits
+	logger.Sync()
 	logger.Info("process exited cleanly")
+
+	// sync AGAIN after the final log line
+	logger.Sync()
 
 }
