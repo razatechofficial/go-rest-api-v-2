@@ -46,10 +46,15 @@ func main() {
 	}
 
 	//! ================================ HTTP SERVER ================================
+	// errCh collects fatal server errors.
+	// buffer size = number of servers so sends never block.
+	errCh := make(chan error, 1)
 	//* 4. start HTTP server in goroutine
 	go func() {
 		if err := application.HTTP.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("http server error", logger.Err(err))
+			// ErrServerClosed is expected on clean shutdown — not an error.
+			// anything else is a real crash — send to errCh.
+			errCh <- err
 		}
 	}()
 
@@ -57,9 +62,20 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	sig := <-quit
-	logger.Info("shutdown signal received", logger.String("signal", sig.String()))
+	select {
+	case sig := <-quit:
+		// clean shutdown requested by OS or orchestrator (k8s, docker)
+		logger.Info("shutdown signal received",
+			logger.String("signal", sig.String()),
+		)
 
+	case err := <-errCh:
+		// one of the servers crashed unexpectedly
+		// log and fall through to shutdown remaining servers cleanly
+		logger.Error("server crashed, initiating shutdown",
+			logger.Err(err),
+		)
+	}
 	//* 6. graceful shutdown — 10s to drain in-flight requests
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -67,4 +83,6 @@ func main() {
 	if err := application.HTTP.Shutdown(ctx); err != nil {
 		logger.Fatal("forced shutdown", logger.Err(err))
 	}
+	logger.Info("process exited cleanly")
+
 }
