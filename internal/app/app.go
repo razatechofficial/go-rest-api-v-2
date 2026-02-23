@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/razatechofficial/go-rest-api-v-2/config"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/container"
 	"github.com/razatechofficial/go-rest-api-v-2/internal/infrastructure/persistence/postgres"
 
 	transporthttp "github.com/razatechofficial/go-rest-api-v-2/internal/transport/http"
@@ -32,12 +33,12 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	// container — all DI wiring
-	// c := container.New(cfg, db)
+	c := container.New(cfg, db)
 
 	//! ================================ TRANSPORT ================================
 	//* Step 4: Create HTTP server
 	httpServer := transporthttp.NewServer(cfg)
-	// httpServer.RegisterRoutes(c)
+	httpServer.RegisterRoutes(c)
 
 	return &App{
 		HTTP: httpServer,
