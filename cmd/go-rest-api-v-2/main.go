@@ -1,16 +1,24 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/razatechofficial/go-rest-api-v-2/config"
-	database "github.com/razatechofficial/go-rest-api-v-2/internal/infrastructure/persistence/postgres"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/app"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 )
 
 func main() {
 
-	// Step 1: Load configuration
+	//! ================================ CONFIGURATION LOADING ================================
+	//* Step 1: Load configuration
 	// Configuration comes from YAML files and environment variables
 	cfg, err := config.Load()
 	if err != nil {
@@ -20,23 +28,43 @@ func main() {
 
 	fmt.Printf("Configuration loaded successfully: %+v\n", cfg)
 
-	// Step 2: Initialize logger FIRST (before any logging)
+	//! ================================ LOGGER INITIALIZATION ================================
+	//* Step 2: Initialize logger FIRST (before any logging)
 	// This creates the actual zap.Logger instance
 	if err := logger.Init(cfg.Log.Level, cfg.Log.Format); err != nil {
 		panic("Failed to initialize logger: " + err.Error())
 	}
 	defer logger.Sync() // Flush logs on exit
 
-	logger.Info("Starting application",
-		logger.String("name", cfg.App.Name),
-		logger.String("version", cfg.App.Version),
-		logger.String("environment", cfg.App.Environment),
-	)
-
-	// Step 3: Connect to database
-	db, err := database.NewConnection(cfg.Database)
+	//! ================================ APPLICATION BOOTSTRAP ================================
+	//* 3. bootstrap application
+	application, err := app.New(cfg)
 	if err != nil {
-		panic("Failed to connect to database: " + err.Error())
+		logger.Fatal("failed to initialize application",
+			logger.Err(err),
+		)
 	}
-	defer db.Close()
+
+	//! ================================ HTTP SERVER ================================
+	//* 4. start HTTP server in goroutine
+	go func() {
+		if err := application.HTTP.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("http server error", logger.Err(err))
+		}
+	}()
+
+	//* 5. block until SIGINT (Ctrl+C) or SIGTERM (k8s shutdown)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-quit
+	logger.Info("shutdown signal received", logger.String("signal", sig.String()))
+
+	//* 6. graceful shutdown — 10s to drain in-flight requests
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := application.HTTP.Shutdown(ctx); err != nil {
+		logger.Fatal("forced shutdown", logger.Err(err))
+	}
 }
