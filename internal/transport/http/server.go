@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/razatechofficial/go-rest-api-v-2/config"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/container"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 )
 
@@ -17,6 +18,8 @@ type Server struct {
 	engine     *gin.Engine
 	httpServer *http.Server
 	cfg        *config.Config
+	container  *container.Container // stored for probe handlers
+
 }
 
 // NewServer creates and configures the HTTP server.
