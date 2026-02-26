@@ -27,7 +27,8 @@ func (r *repository) Create(ctx context.Context, order *domain.Order) error {
 		INSERT INTO orders (id, user_id, status, total_amount_cents, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`
-	_, err := r.db.Exec(ctx, query,
+	q := postgres.QuerierFromContext(ctx, r.db)
+	_, err := q.Exec(ctx, query,
 		order.ID,
 		order.UserID,
 		order.Status,
@@ -48,7 +49,8 @@ func (r *repository) FindByID(ctx context.Context, id domain.OrderID) (*domain.O
 		WHERE  id = $1 AND deleted_at IS NULL
 	`
 	o := &domain.Order{}
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	q := postgres.QuerierFromContext(ctx, r.db)
+	err := q.QueryRow(ctx, query, id).Scan(
 		&o.ID,
 		&o.UserID,
 		&o.Status,
@@ -93,9 +95,10 @@ func (r *repository) FindAll(ctx context.Context, query OrderListQuery) ([]*doma
 
 	where := "WHERE " + strings.Join(conditions, " AND ")
 
+	q := postgres.QuerierFromContext(ctx, r.db)
 	var total int
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM orders %s", where)
-	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := q.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting orders: %w", err)
 	}
 
@@ -122,7 +125,7 @@ func (r *repository) FindAll(ctx context.Context, query OrderListQuery) ([]*doma
 	`, where, column, dir, idx, idx+1)
 	args = append(args, query.Pagination.Limit, query.Pagination.Offset)
 
-	rows, err := r.db.Query(ctx, dataQuery, args...)
+	rows, err := q.Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying orders: %w", err)
 	}
@@ -150,7 +153,8 @@ func (r *repository) Update(ctx context.Context, order *domain.Order) error {
 		SET    status = $1, total_amount_cents = $2, updated_at = $3
 		WHERE  id = $4 AND deleted_at IS NULL
 	`
-	result, err := r.db.Exec(ctx, query,
+	q := postgres.QuerierFromContext(ctx, r.db)
+	result, err := q.Exec(ctx, query,
 		order.Status,
 		order.TotalAmountCents,
 		time.Now().UTC(),
@@ -169,7 +173,8 @@ func (r *repository) Delete(ctx context.Context, id domain.OrderID) error {
 	query := `
 		UPDATE orders SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL
 	`
-	result, err := r.db.Exec(ctx, query, time.Now().UTC(), id)
+	q := postgres.QuerierFromContext(ctx, r.db)
+	result, err := q.Exec(ctx, query, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("deleting order: %w", err)
 	}

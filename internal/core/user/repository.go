@@ -27,7 +27,8 @@ func (r *repository) Create(ctx context.Context, user *domain.User) error {
         INSERT INTO users (id, name, email, password, is_active, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
     `
-	_, err := r.db.Exec(ctx, query,
+	q := postgres.QuerierFromContext(ctx, r.db)
+	_, err := q.Exec(ctx, query,
 		user.ID,
 		user.Name,
 		user.Email,
@@ -50,7 +51,8 @@ func (r *repository) FindByID(ctx context.Context, id domain.UserID) (*domain.Us
           AND  deleted_at IS NULL
     `
 	u := &domain.User{}
-	err := r.db.QueryRow(ctx, query, id).Scan(
+	q := postgres.QuerierFromContext(ctx, r.db)
+	err := q.QueryRow(ctx, query, id).Scan(
 		&u.ID,
 		&u.Name,
 		&u.Email,
@@ -76,7 +78,8 @@ func (r *repository) FindByEmail(ctx context.Context, email string) (*domain.Use
           AND  deleted_at IS NULL
     `
 	u := &domain.User{}
-	err := r.db.QueryRow(ctx, query, email).Scan(
+	q := postgres.QuerierFromContext(ctx, r.db)
+	err := q.QueryRow(ctx, query, email).Scan(
 		&u.ID,
 		&u.Name,
 		&u.Email,
@@ -131,8 +134,9 @@ func (r *repository) FindAll(ctx context.Context, query UserListQuery) ([]*domai
 
 	// count total matching records
 	var total int
+	q := postgres.QuerierFromContext(ctx, r.db)
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM users %s", where)
-	if err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+	if err := q.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("counting users: %w", err)
 	}
 
@@ -165,7 +169,7 @@ func (r *repository) FindAll(ctx context.Context, query UserListQuery) ([]*domai
 
 	args = append(args, query.Pagination.Limit, query.Pagination.Offset)
 
-	rows, err := r.db.Query(ctx, dataQuery, args...)
+	rows, err := q.Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("querying users: %w", err)
 	}
@@ -198,7 +202,8 @@ func (r *repository) Update(ctx context.Context, user *domain.User) error {
         WHERE  id         = $4
           AND  deleted_at IS NULL
     `
-	result, err := r.db.Exec(ctx, query,
+	q := postgres.QuerierFromContext(ctx, r.db)
+	result, err := q.Exec(ctx, query,
 		user.Name,
 		user.Email,
 		time.Now().UTC(),
@@ -220,7 +225,8 @@ func (r *repository) Delete(ctx context.Context, id domain.UserID) error {
         WHERE  id         = $2
           AND  deleted_at IS NULL
     `
-	result, err := r.db.Exec(ctx, query, time.Now().UTC(), id)
+	q := postgres.QuerierFromContext(ctx, r.db)
+	result, err := q.Exec(ctx, query, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("deleting user: %w", err)
 	}
@@ -239,7 +245,8 @@ func (r *repository) ExistsByEmail(ctx context.Context, email string) (bool, err
         )
     `
 	var exists bool
-	if err := r.db.QueryRow(ctx, query, email).Scan(&exists); err != nil {
+	q := postgres.QuerierFromContext(ctx, r.db)
+	if err := q.QueryRow(ctx, query, email).Scan(&exists); err != nil {
 		return false, fmt.Errorf("checking email existence: %w", err)
 	}
 	return exists, nil
