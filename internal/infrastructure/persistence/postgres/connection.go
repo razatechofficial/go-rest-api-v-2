@@ -19,11 +19,12 @@ import (
 
 // Pool wraps pgxpool.Pool.
 // All database access in the application goes through this type.
-// Wrapping lets us add methods (Close with logging, Health check etc)
-// without modifying pgxpool directly.
+// Use Begin(ctx) to start a transaction; attach it with postgres.WithTx(ctx, tx)
+// and pass that context to repository methods so they participate in the same transaction.
+// See tx.go for QuerierFromContext and transaction usage.
 //
-// Repositories receive *Pool — they never import pgx directly.
-// This means if you ever switch drivers, only this file changes.
+// Repositories receive *Pool and use postgres.QuerierFromContext(ctx, r.db)
+// so they work with or without a transaction in context.
 type Pool struct {
 	*pgxpool.Pool
 }
