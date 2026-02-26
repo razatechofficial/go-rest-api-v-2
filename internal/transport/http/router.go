@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/razatechofficial/go-rest-api-v-2/internal/container"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/core/order"
 	"github.com/razatechofficial/go-rest-api-v-2/internal/core/user"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 )
@@ -35,6 +36,7 @@ func (s *Server) RegisterRoutes(c *container.Container) {
 	v1 := s.engine.Group("/api/v1")
 	{
 		user.RegisterRoutes(v1, c.Handlers.User)
+		order.RegisterRoutes(v1, c.Handlers.Order)
 	}
 }
 
