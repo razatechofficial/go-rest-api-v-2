@@ -12,8 +12,20 @@ type Services struct {
 }
 
 func (c *Container) buildServices() *Services {
+	// 1. User service first, without OrderLister (avoids circular dependency)
+	userSvc := user.NewService(c.Repositories.User, nil)
+	// 2. Adapter: order module uses user service as ports.UserChecker
+	userChecker := userCheckerAdapter{Service: userSvc}
+	// 3. Order service with UserChecker so Create can reject inactive users
+	orderSvc := order.NewService(c.Repositories.Order, userChecker)
+	// 4. Adapter: user module uses order service as ports.OrderLister
+	orderLister := orderListerAdapter{Service: orderSvc}
+	// 5. Two-phase wiring: inject OrderLister into user service
+	if setter, ok := userSvc.(user.OrderListerSetter); ok {
+		setter.SetOrderLister(orderLister)
+	}
 	return &Services{
-		User:  user.NewService(c.Repositories.User),
-		Order: order.NewService(c.Repositories.Order),
+		User:  userSvc,
+		Order: orderSvc,
 	}
 }

@@ -8,19 +8,32 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/razatechofficial/go-rest-api-v-2/internal/domain"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/ports"
 	apperrors "github.com/razatechofficial/go-rest-api-v-2/pkg/errors"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
+	"github.com/razatechofficial/go-rest-api-v-2/pkg/pagination"
 )
 
 type service struct {
-	repo Repository
+	repo        Repository
+	userChecker ports.UserChecker
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, userChecker ports.UserChecker) Service {
+	return &service{repo: repo, userChecker: userChecker}
 }
 
 func (s *service) Create(ctx context.Context, dto CreateOrderDTO) (*domain.Order, error) {
+	if s.userChecker != nil {
+		active, err := s.userChecker.IsUserActive(ctx, dto.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("checking user active: %w", err)
+		}
+		if !active {
+			return nil, apperrors.ErrInactive
+		}
+	}
+
 	status := domain.OrderStatusPending
 	if dto.Status != "" {
 		status = dto.Status
@@ -62,6 +75,29 @@ func (s *service) List(ctx context.Context, query OrderListQuery) ([]*domain.Ord
 		return nil, 0, fmt.Errorf("listing orders: %w", err)
 	}
 	return orders, total, nil
+}
+
+// OrdersByUser implements ports.OrderLister for cross-module use (e.g. user module).
+func (s *service) OrdersByUser(ctx context.Context, userID string) ([]*ports.OrderSummary, error) {
+	query := OrderListQuery{
+		UserID:     domain.UserID(userID),
+		Pagination: pagination.Params{Page: 1, Limit: 100, Offset: 0},
+	}
+	orders, _, err := s.repo.FindAll(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("listing orders by user: %w", err)
+	}
+	out := make([]*ports.OrderSummary, len(orders))
+	for i, o := range orders {
+		out[i] = &ports.OrderSummary{
+			ID:               string(o.ID),
+			UserID:           string(o.UserID),
+			Status:           o.Status,
+			TotalAmountCents: o.TotalAmountCents,
+			CreatedAt:        o.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	return out, nil
 }
 
 func (s *service) Update(ctx context.Context, id domain.OrderID, dto UpdateOrderDTO) (*domain.Order, error) {

@@ -9,6 +9,7 @@ func RegisterRoutes(rg *gin.RouterGroup, h *Handler) {
 	{
 		users.POST("", h.Create)
 		users.GET("", h.List)
+		users.GET("/:id/orders", h.ListOrders) // before /:id so "orders" is not treated as id
 		users.GET("/:id", h.GetByID)
 		users.PUT("/:id", h.Update)
 		users.DELETE("/:id", h.Delete)

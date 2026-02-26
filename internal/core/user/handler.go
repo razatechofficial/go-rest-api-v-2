@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/razatechofficial/go-rest-api-v-2/internal/domain"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/ports"
 	apperrors "github.com/razatechofficial/go-rest-api-v-2/pkg/errors"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/pagination"
@@ -107,6 +108,22 @@ func (h *Handler) Delete(ctx *gin.Context) {
 	}
 
 	response.NoContent(ctx)
+}
+
+// ListOrders handles GET /api/v1/users/:id/orders (list orders for a user via ports.OrderLister).
+func (h *Handler) ListOrders(ctx *gin.Context) {
+	userID := ctx.Param("id")
+
+	orders, err := h.service.ListOrdersForUser(ctx.Request.Context(), userID)
+	if err != nil {
+		h.handleError(ctx, err)
+		return
+	}
+
+	if orders == nil {
+		orders = []*ports.OrderSummary{}
+	}
+	response.OK(ctx, orders)
 }
 
 // handleError maps service errors to HTTP responses.

@@ -11,16 +11,23 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/razatechofficial/go-rest-api-v-2/internal/domain"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/ports"
 	apperrors "github.com/razatechofficial/go-rest-api-v-2/pkg/errors"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 )
 
 type service struct {
-	repo Repository
+	repo        Repository
+	orderLister ports.OrderLister
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository, orderLister ports.OrderLister) Service {
+	return &service{repo: repo, orderLister: orderLister}
+}
+
+// SetOrderLister injects OrderLister (called by container for two-phase wiring).
+func (s *service) SetOrderLister(l ports.OrderLister) {
+	s.orderLister = l
 }
 
 func (s *service) Create(ctx context.Context, dto CreateUserDTO) (*domain.User, error) {
@@ -152,4 +159,11 @@ func (s *service) IsActive(ctx context.Context, id domain.UserID) (bool, error) 
 		return false, fmt.Errorf("checking active status: %w", err)
 	}
 	return user.IsActive, nil
+}
+
+func (s *service) ListOrdersForUser(ctx context.Context, userID string) ([]*ports.OrderSummary, error) {
+	if s.orderLister == nil {
+		return nil, nil
+	}
+	return s.orderLister.OrdersByUser(ctx, userID)
 }
