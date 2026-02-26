@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/razatechofficial/go-rest-api-v-2/internal/container"
+	"github.com/razatechofficial/go-rest-api-v-2/internal/core/user"
 	"github.com/razatechofficial/go-rest-api-v-2/pkg/logger"
 )
 
@@ -31,12 +32,10 @@ func (s *Server) RegisterRoutes(c *container.Container) {
 	s.engine.GET("/ready", s.readinessProbe)
 
 	// ── api v1 ────────────────────────────────────────────────────
-	// v1 := s.engine.Group("/api/v1")
-	// {
-	// 	// user.RegisterRoutes(v1, c.Handlers.User, s.cfg)
-	// 	// auth.RegisterRoutes(v1, c.Handlers.Auth, s.cfg)
-	// 	// order.RegisterRoutes(v1, c.Handlers.Order, s.cfg)
-	// }
+	v1 := s.engine.Group("/api/v1")
+	{
+		user.RegisterRoutes(v1, c.Handlers.User)
+	}
 }
 
 // livenessProbe handles GET /health
